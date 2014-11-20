@@ -145,7 +145,8 @@ class RandomData(RandomValue):
             dns1='8.8.8.8',
             internaldns1='10.1.1.1',
             name=self.random_string_id(),
-            networktype=self.random_network_type()
+            networktype=self.random_network_type(),
+            guestcidraddress='10.1.1.0/24',
         )
 
     def random_account(self, account_type=None):

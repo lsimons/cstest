@@ -15,8 +15,8 @@ Currently uses the marvin api client, wrapping it with a strongly typed pythonic
 Requirements
 ------------
 * cloudstack management server accessible at http://localhost:8080/client/ or set environment variables:
-** CS_HOST, CS_PORT, CS_USER, CS_PROTOCOL or CS_BASE_URL
-** CS_PASSWORD or CS_API_KEY and CS_SECRET_KEY
+ * CS_HOST, CS_PORT, CS_USER, CS_PROTOCOL or CS_BASE_URL
+ * CS_PASSWORD or CS_API_KEY and CS_SECRET_KEY
 * marvin install matching the running management server
 * 'python' command invokes python2.7 or later
 

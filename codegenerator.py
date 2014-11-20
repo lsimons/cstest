@@ -23,6 +23,196 @@ from optparse import OptionParser
 from textwrap import dedent
 import os
 import urllib2
+import re
+
+from ezt import Template
+
+
+_capital_re = re.compile('[A-Z]')
+_first_cap_re = re.compile('(.)([A-Z][a-z]+)')
+_all_cap_re = re.compile('([a-z0-9])([A-Z])')
+
+"""Commands that start with one of these verbs will be associated with a model."""
+_recognized_command_verbs = ['activate', 'add', 'archive', 'assign', 'associate', 'attach', 'authorize', 'cancel',
+                             'change', 'clean', 'configure', 'copy', 'create', 'dedicate', 'delete', 'deploy',
+                             'destroy', 'detach', 'disable', 'disassociate', 'enable', 'expunge', 'extract',
+                             # findHostsForMigration, findStoragePoolsForMigration
+                             'generate', 'get',
+                             'list', 'lock',
+                             # login, logout,
+                             # mark
+                             'migrate', 'prepare',
+                             # queryAsyncJobResult
+                             'reboot', 'reconnect', 'recover', 'register', 'release', 'remove',
+                             # replaceNetworkACLList
+                             'reset', 'resize', 'restart', 'restore',
+                             # revertSnapshot, revertToVMSnapshot
+                             'revoke',
+                             'scale', 'start', 'stop', 'suspend', 'update',
+                             # upgradeRouterTemplate
+                             'upload']
+
+
+"""Commands with these names are associated with the specified model."""
+_custom_cmd_to_model_mapping = {
+    'markDefaultZoneForAccount': 'Account',
+
+    'listAffinityGroupTypes': 'AffinityGroup',
+
+    'login': 'Api',
+    'logout': 'Api',
+    'getApiLimit': 'Api',
+    'resetApiLimit': 'Api',
+    'getCloudIdentifier': 'Api',
+    'updateCloudToUseObjectStore': 'Api',
+    'uploadCustomCertificate': 'Api',
+    'listDeploymentPlanners': 'Api',
+
+    'listAsyncJobs': 'Async',
+    'queryAsyncJobResult': 'Async',
+
+    'removeCertFromLoadBalancer': 'LoadBalancer',
+    'assignCertToLoadBalancer': 'LoadBalancer',
+    'removeFromLoadBalancerRule': 'LoadBalancer',
+    'listLoadBalancerRuleInstances': 'LoadBalancerRule',
+    'assignToLoadBalancerRule' : 'LoadBalancer',
+    'removeFromGlobalLoadBalancerRule': 'GlobalLoadBalancerRule',
+    'assignToGlobalLoadBalancerRule' : 'GlobalLoadBalancerRule',
+    'listNetscalerLoadBalancerNetworks': 'NetscalerLoadBalancer',
+
+    'listDedicatedClusters': 'Cluster',
+    'releaseDedicatedCluster': 'Cluster',
+
+    'listDomainChildren': 'Domain',
+
+    'listEventTypes': 'Event',
+
+    'listOsCategories' : 'GuestOs',
+    'listOsTypes' : 'GuestOs',
+
+    'listDedicatedGuestVlanRanges': 'GuestVlanRange',
+    'releaseDedicatedGuestVlanRange': 'GuestVlanRange',
+
+    'listDedicatedHosts': 'Host',
+    'releaseDedicatedHost': 'Host',
+    'prepareHostForMaintenance': 'Host',
+    'cancelHostMaintenance': 'Host',
+    'updateHostPassword': 'Host',
+    'releaseHostReservation': 'Host',
+    'listHostTags': 'Host',
+    'findHostsForMigration': 'Host',
+    'findStoragePoolsForMigration': 'Host',
+
+    'listHypervisorCapabilities' : 'Hypervisor',
+    'updateHypervisorCapabilities' : 'Hypervisor',
+    
+    'removeIpFromNic': 'Nic',
+    'addIpToNic': 'Nic',
+    'removeNicFromVirtualMachine': 'Nic',
+    'addNicToVirtualMachine': 'Nic',
+
+    'disableStaticNat': 'IpAddress',
+    'enableStaticNat': 'IpAddress',
+
+    'listIsoPermissions': 'Iso',
+    'updateIsoPermissions': 'Iso',
+
+    'listNetworkIsolationMethods': 'Network',
+    'listPublicIpAddresses': 'Network',
+    'replaceNetworkACLList': 'Network',
+
+    'updateNetworkACLItem': 'NetworkACL',
+
+    'dedicatePublicIpRange': 'PublicIpRange',
+    'releasePublicIpRange': 'PublicIpRange',
+
+    'listDedicatedPods': 'Pod',
+    'releaseDedicatedPod': 'Pod',
+
+    'deleteAccountFromProject': 'Project',
+    'addAccountToProject': 'Project',
+    'listProjectAccounts': 'Project',
+
+    'updateResourceCount': 'Resource',
+    'addResourceDetail': 'Resource',
+    'listResourceDetails': 'Resource',
+    'removeResourceDetail': 'Resource',
+    'listResourceLimits': 'Resource',
+    'updateResourceLimit': 'Resource',
+
+    'changeServiceForRouter': 'Router',
+    'upgradeRouterTemplate': 'Router',
+
+    'changeServiceForSystemVm': 'SystemVm',
+
+    'createTags': 'Tag',
+    'deleteTags': 'Tag',
+
+    'listTemplatePermissions' : 'Template',
+    'updateTemplatePermissions' : 'Template',
+
+    'listTrafficTypeImplementors' : 'TrafficType',
+
+    'listUsageRecords' : 'UsageRecord',
+    'generateUsageRecords' : 'UsageRecord',
+    'listUsageTypes' : 'UsageRecord',
+
+    'registerUserKeys' : 'User',
+
+    'listDedicatedZones': 'Zone',
+    'releaseDedicatedZone': 'Zone',
+
+    'updateDefaultNicForVirtualMachine': 'VirtualMachine',
+    'resetSSHKeyForVirtualMachine': 'VirtualMachine',
+    'resetPasswordForVirtualMachine': 'VirtualMachine',
+    'getVMPassword' : 'VirtualMachine',
+    'cleanVMReservations' : 'VirtualMachine',
+    'getVirtualMachineUserData' : 'VirtualMachine',
+    'migrateVirtualMachineWithVolume' : 'VirtualMachine',
+    'updateVMAffinityGroup': 'VirtualMachine',
+    'changeServiceForVirtualMachine': 'VirtualMachine',
+
+    'revertSnapshot': 'VMSnapshot',
+    'revertToVMSnapshot': 'VMSnapshot',
+
+
+    'importLdapUsers': 'Ldap',
+    'ldapCreateAccount': 'Ldap',
+    'listLdapUsers': 'Ldap',
+
+    'getSPMetadata': 'Saml',
+    'samlSlo': 'Saml',
+    'samlSso': 'Saml',
+
+    'addBaremetalDhcp': 'Baremetal',
+    'listBaremetalDhcp': 'Baremetal',
+    'addBaremetalHost': 'Baremetal',
+    'addBaremetalPxeKickStartServer': 'Baremetal',
+    'addBaremetalPxePingServer': 'Baremetal',
+    'listBaremetalPxeServers': 'Baremetal',
+
+    'listBrocadeVcsDeviceNetworks': 'BrocadeVcsDevice',
+
+    'createServiceInstance': 'Contrail',
+
+    'addGloboDnsHost': 'GloboDns',
+
+    'listNiciraNvpDeviceNetworks': 'NiciraNvpDevice',
+
+    'listPaloAltoFirewallNetworks': 'PaloAltoFirewall',
+
+    'getSolidFireAccountId': 'SolidFire',
+    'getSolidFireVolumeAccessGroupId': 'SolidFire',
+    'getSolidFireVolumeIscsiName': 'SolidFire',
+    'getSolidFireVolumeSize': 'SolidFire',
+    
+    'listUcsBlades' : 'Ucs',
+    'addUcsManager' : 'Ucs',
+    'listUcsManagers' : 'Ucs',
+    'listUcsProfiles' : 'Ucs',
+    'associateUcsProfileToBlade' : 'Ucs',
+        
+}
 
 
 class CmdParameterProperty(object):
@@ -32,7 +222,35 @@ class CmdParameterProperty(object):
         self.desc = ""
         self.type = "planObject"
         self.subProperties = []
-        self.dataType = ""
+        self._dataType = ""
+        self.pythonType = ""
+    
+    @property
+    def dataType(self):
+        return self._dataType
+    
+    @dataType.setter
+    def dataType(self, dataType):
+        self._dataType = dataType
+        if dataType == "string":
+            self.pythonType = "basestring"
+        elif dataType == "integer":
+            self.pythonType = "int"
+        elif dataType == "boolean":
+            self.pythonType = "bool"
+        elif dataType == "[]":
+            self.pythonType = "list"
+        elif dataType == "date":
+            self.pythonType = "basestring"
+            self.desc += " (string format of a date)"
+        elif dataType == "short":
+            self.pythonType = "int"
+        elif dataType == "map":
+            self.pythonType = "dict"
+        elif dataType == "list":
+            self.pythonType = "list"
+        elif dataType is not None:
+            self.pythonType = dataType
 
 
 class CloudStackCmd(object):
@@ -40,7 +258,9 @@ class CloudStackCmd(object):
         self.name = ""
         self.desc = ""
         self.async = "false"
+        """:type: list[CmdParameterProperty]"""
         self.request_params = []
+        """:type: list[CmdParameterProperty]"""
         self.response_params = []
 
 
@@ -173,8 +393,7 @@ class CodeGenerator(object):
         for subclass in self.subclass:
             self.code += subclass + "\n"
 
-        fp = open(self.outputFolder + "/csapi/%s.py" % self.cmd.name,
-                  "w")
+        fp = open(self.outputFolder + "/csapi/%s.py" % self.cmd.name, "w")
         fp.write(self.code)
         fp.close()
         self.code = ""
@@ -242,34 +461,153 @@ class CodeGenerator(object):
         fp.write(initCmdsList)
         fp.close()
 
-        fp = open(self.outputFolder + '/csapi/baseCmd.py', 'w')
+        fp = open(self.outputFolder + '/csapi/base.py', 'w')
         basecmd = self.license
         basecmd += '"""Base Command"""\n'
-        basecmd += 'class baseCmd(object):\n'
+        basecmd += 'class BaseCmd(object):\n'
         basecmd += self.space + 'pass\n'
-        fp.write(basecmd)
-        fp.close()
-
-        fp = open(self.outputFolder + '/csapi/baseResponse.py', 'w')
-        basecmd = self.license
+        basecmd += self.newline
+        basecmd += self.newline
         basecmd += '"""Base class for response"""\n'
         basecmd += 'class baseResponse(object):\n'
         basecmd += self.space + 'pass\n'
         fp.write(basecmd)
         fp.close()
 
-    def generate_commands(self, cmds):
+    @staticmethod
+    def to_camel_case(model_name):
+        s1 = _first_cap_re.sub(r'\1_\2', model_name)
+        return _all_cap_re.sub(r'\1_\2', s1).lower()
+    
+    def generate_model(self, model_name='model', **kwargs):
+        template = './templates/%s.tpl' % model_name
+        if not os.path.exists(template):
+            template = './templates/model.tpl'
+        template = Template(fname=template, compress_whitespace=0)
+        data = dict(kwargs)
+        data['model_name'] = model_name
+        model_file = self.outputFolder + '/csapi/model/' + self.to_camel_case(model_name) + ".py"
+        with open(model_file, 'w') as f:
+            template.generate(f, data)
+
+    def generate_api(self, model_name='model', **kwargs):
+        template = './templates/%s_api.tpl' % model_name
+        if not os.path.exists(template):
+            template = './templates/api.tpl'
+        template = Template(fname=template, compress_whitespace=0)
+        data = dict(kwargs)
+        data['model_name'] = model_name
+        data['package_name'] = self.to_camel_case(model_name)
+        data['variable_name'] = self.to_camel_case(model_name)
+        model_file = self.outputFolder + '/csapi/' + self.to_camel_case(model_name) + ".py"
+        with open(model_file, 'w') as f:
+            template.generate(f, data)
+
+    @staticmethod
+    def method_name(command_name):
+        if command_name.startswith("update"):
+            pass
+        match = _capital_re.search(command_name)
+        if match:
+            first_word = command_name[0:match.start()]
+        else:
+            first_word = None
+
+        if first_word in _recognized_command_verbs:
+            return first_word, True
+        else:
+            return command_name, False
+
+    @staticmethod
+    def model_name(command_name):
+        match = _capital_re.search(command_name)
+        if match:
+            noun = command_name[match.start():]
+        else:
+            raise Exception('method_name matched, but model_name didn\'t')
+        return noun
+
+    def extract_models(self, cmds):
+        """
+        :type cmds: list[CloudStackCmd]
+        :returns dict[str, dict[str, CloudStackCmd]]
+        """
+        models = {}
+        commands = {}
         for cmd in cmds:
-            self.generate_command(cmd)
-        self.finalize()
+            command_belongs_to_model = True
+            method_name = cmd.name
+            if cmd.name in _custom_cmd_to_model_mapping:
+                model_name = _custom_cmd_to_model_mapping[cmd.name]
+            else:
+                method_name, recognized_verb = self.method_name(cmd.name)
+                if recognized_verb:
+                    model_name = self.model_name(cmd.name)
+                    if model_name.endswith('ies'):
+                        model_name = model_name[:-3] + 'y'
+                    elif method_name == 'list' and model_name.endswith('s'):
+                        model_name = model_name[:-1]
+                else:
+                    command_belongs_to_model = False
+
+            if command_belongs_to_model:
+                if not model_name in models:
+                    models[model_name] = {}
+                if method_name in models[model_name]:
+                    raise Exception('Want to put %s as %s on %s but %s is already there' % (
+                        cmd.name, method_name, model_name, models[model_name][method_name].name))
+                models[model_name][method_name] = cmd
+            else:
+                commands[cmd.name] = cmd
+        if len(commands) > 0:
+            raise Exception("Don't know model for commands: %s" % ",".join(commands.keys()))
+        return models
+
+    @staticmethod
+    def extract_fields(methods):
+        field_names = []
+        fields = []
+        for model_method_name in ["create", "update"]:
+            if not model_method_name in methods:
+                continue
+            method = methods[model_method_name]
+            assert isinstance(method, CloudStackCmd)
+            for p in method.response_params:
+                if not p.name in field_names:
+                    field_names.append(p.name)
+                    fields.append(p)
+            for p in method.request_params:
+                if not p.name in field_names:
+                    field_names.append(p.name)
+                    fields.append(p)
+        return fields
+
+    def generate(self, cmds):
+        """
+        :type cmds: list[CloudStackCmd]
+        """
+        models = self.extract_models(cmds)
+            
+        model_names = models.keys()
+        model_names.sort()
+        for model_name in model_names:
+            print "MODEL:", model_name
+            methods = models[model_name]
+            method_names = methods.keys()
+            method_names.sort()
+            for method_name in method_names:
+                print "    " + method_name + " -> " + methods[method_name].name
+
+            fields = self.extract_fields(methods)
+            self.generate_model(model_name=model_name, methods=methods, fields=fields)
+            self.generate_api(model_name=model_name, methods=methods, fields=fields)
 
 
 class XmlCodeGenerator(CodeGenerator):
     def construct_response(self, response):
         paramProperty = CmdParameterProperty()
         paramProperty.name = get_text(response.getElementsByTagName('name'))
-        paramProperty.desc = get_text(response.
-                                     getElementsByTagName('description'))
+        paramProperty.desc = get_text(response.getElementsByTagName('description'))
         dataType = response.getElementsByTagName('dataType')
         if dataType:
             paramProperty.dataType = get_text(dataType)
@@ -330,7 +668,7 @@ class XmlCodeGenerator(CodeGenerator):
     def generate_from_file(self, specFile):
         dom = xml.dom.minidom.parse(specFile)
         cmds = self.load_commands(dom)
-        self.generate_commands(cmds)
+        self.generate(cmds)
 
 class JsonCodeGenerator(CodeGenerator):
     def construct_response(self, response):
@@ -402,7 +740,7 @@ class JsonCodeGenerator(CodeGenerator):
     def generate_from_api(self, url):
         apiStream = urllib2.urlopen(url)
         cmds = self.load_commands(apiStream)
-        self.generate_commands(cmds)
+        self.generate(cmds)
 
 
 def get_text(elements):

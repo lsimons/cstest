@@ -26,7 +26,7 @@ from csapi.zone import ZoneAPI
 from csapi.account import AccountAPI
 from csapi.user import UserAPI
 from cstest.random_data import RandomData
-from csapi.model import ADMIN_ACC, DOMAIN_ACC, USER_ACC
+from csapi.model import ADMIN_ACC, DOMAIN_ACC, USER_ACC, BASIC, ADVANCED
 
 logger = logging.getLogger("cstest")
 logger.setLevel(logging.DEBUG)
@@ -91,6 +91,9 @@ class CITTestCase(unittest.TestCase):
         if len(zones) == 0:
             zone = self.data.random_zone()
             zone.domainid = self.domain.id
+            zone.securitygroupenabled = False
+            zone.localstorageenabled = True
+            zone.networktype = ADVANCED
             self.__zone = self.zone_api.create(zone)
         else:
             self.__zone = self.data.choice(zones)
